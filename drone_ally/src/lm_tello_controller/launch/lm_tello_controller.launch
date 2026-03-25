@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+ 
+<launch>
+   <node name="lm_tello_controller_node" pkg="lm_tello_controller" type="lm_tello_controller_node" output="screen">
+      <!-- <rosparam param="scan_topic_name" >
+         /front/scan
+      </rosparam>
+      <rosparam param="scan_topic_queue_size">
+         10
+      </rosparam>
+      <rosparam param="controller_gain">
+         0.5
+      </rosparam> -->
+   </node>
+</launch>
