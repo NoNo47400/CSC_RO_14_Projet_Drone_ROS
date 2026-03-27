@@ -27,6 +27,7 @@ public:
 
     bool m_inBounds = false;
     geometry_msgs::Point m_pos;
+    double m_yaw;
 
 private:
     ros::NodeHandle* m_nodeHandle;

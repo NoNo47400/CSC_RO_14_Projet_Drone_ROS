@@ -99,6 +99,7 @@ namespace lm_tello_controller
     tf::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
+    m_yaw = -yaw;
     // ROS_INFO("\nroll  = %f\npitch = %f\nyaw   = %f", roll, pitch, yaw);
   }
 

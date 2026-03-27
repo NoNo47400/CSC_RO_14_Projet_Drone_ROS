@@ -2,13 +2,7 @@
 #include <std_msgs/Empty.h>
 #include <tf/tf.h>
 #include "lm_tello_controller/MyController.hpp"
-
-// void copyPoint(geometry_msgs::Point fromPoint, geometry_msgs::Point toPoint)
-// {
-//   toPoint.x = fromPoint.x;
-//   toPoint.y = fromPoint.y;
-//   toPoint.z = fromPoint.z;
-// }
+#define M_PI 3.14159265358979323846
 
 int main(int argc, char **argv)
 {
@@ -35,7 +29,7 @@ int main(int argc, char **argv)
 
   ROS_INFO("\nposAfterTakeoff.z  = %f\nposBeforeTakeoff.z = %f", posAfterTakeoff.z, posBeforeTakeoff.z);
 
-  if (false && posAfterTakeoff.z - posBeforeTakeoff.z < 0.3)
+  if (posAfterTakeoff.z - posBeforeTakeoff.z < 0.3)
   {
     ROS_INFO("No takeoff detected ! (dif is %f)", posAfterTakeoff.z - posBeforeTakeoff.z);
 
@@ -44,30 +38,45 @@ int main(int argc, char **argv)
 
   
   ROS_INFO("Waiting for in bounds OptiTrack callback...");
-  while (!myController.m_inBounds) { ros::spinOnce(); };
+  const ros::Time startTime = ros::Time::now();
+  while (!myController.m_inBounds) {
+    if (ros::Time::now() - startTime > ros::Duration(5.0))
+    {
+      ROS_INFO("Drone still not in bounds after 5 seconds !");
+      return EXIT_FAILURE;
+    }
+    ros::spinOnce();
+  };
   ROS_INFO("Done. Drone is in bounds.");
 
   {
-    const ros::Time startTime = ros::Time::now();
-    while (ros::Time::now() - startTime < ros::Duration(10.0))
+    double turnDir = 1.0;
+    for (size_t i = 0; i < 3; i++)
     {
-      geometry_msgs::Twist myVelMsg;
-      myVelMsg.angular.z = 0.05;
-      myController.m_vel_pub.publish(myVelMsg);
-      ros::spinOnce();
+      ROS_INFO("Turning to pi * %f ...", turnDir);
+      const ros::Time startTime = ros::Time::now();
+      while (ros::Time::now() - startTime < ros::Duration(6.0))
+      {
+        geometry_msgs::Twist myVelMsg;
+        myVelMsg.angular.z = -(myController.m_yaw-M_PI*((turnDir+1)/2));
+        myController.m_vel_pub.publish(myVelMsg);
+        ros::spinOnce();
+      }
+      turnDir*=-1;
     }
   }
 
-  {
-    const ros::Time startTime = ros::Time::now();
-    while (ros::Time::now() - startTime < ros::Duration(10.0))
-    {
-      geometry_msgs::Twist myVelMsg;
-      myVelMsg.angular.z = -0.05;
-      myController.m_vel_pub.publish(myVelMsg);
-      ros::spinOnce();
-    }
-  }
+  // {
+  //   ROS_INFO("Turning z negative...");
+  //   const ros::Time startTime = ros::Time::now();
+  //   while (ros::Time::now() - startTime < ros::Duration(10.0))
+  //   {
+  //     geometry_msgs::Twist myVelMsg;
+  //     myVelMsg.angular.z = -1.;
+  //     myController.m_vel_pub.publish(myVelMsg);
+  //     ros::spinOnce();
+  //   }
+  // }
 
   return EXIT_SUCCESS;
 
@@ -81,7 +90,7 @@ int main(int argc, char **argv)
   //     while (!myController.m_inBounds)
   //     {
   //       geometry_msgs::Twist myVelMsg;
-  //       myVelMsg.linear.x = flightDir*0.7;
+  //       myVelMsg.linear.x = flightDir*0.6;
   //       myController.m_vel_pub.publish(myVelMsg);
   //       ros::spinOnce();
   //     }
@@ -91,7 +100,7 @@ int main(int argc, char **argv)
   //     while (ros::Time::now() - startTime < ros::Duration(1.0))
   //     {
   //       geometry_msgs::Twist myVelMsg;
-  //       myVelMsg.linear.x = flightDir*0.7;
+  //       myVelMsg.linear.x = flightDir*0.6;
   //       myController.m_vel_pub.publish(myVelMsg);
   //       ros::spinOnce();
   //     }
@@ -101,7 +110,7 @@ int main(int argc, char **argv)
   //   while (myController.m_inBounds)
   //   {
   //     geometry_msgs::Twist myVelMsg;
-  //     myVelMsg.linear.x = flightDir*0.7;
+  //     myVelMsg.linear.x = flightDir*0.6;
   //     myController.m_vel_pub.publish(myVelMsg);
   //     ros::spinOnce();
   //   }
@@ -114,24 +123,10 @@ int main(int argc, char **argv)
   // while (ros::Time::now() - startTime < ros::Duration(1.0))
   // {
   //   geometry_msgs::Twist myVelMsg;
-  //   myVelMsg.linear.x = flightDir*0.7;
+  //   myVelMsg.linear.x = flightDir*0.6;
   //   myController.m_vel_pub.publish(myVelMsg);
   //   ros::spinOnce();
   // }
-
-  // // Stop the drone
-  // geometry_msgs::Twist myVelMsg;
-  // myController.m_vel_pub.publish(myVelMsg);
-  // ros::spinOnce();
-
-  // ros::Duration(1.0).sleep();
-
-
-  // ROS_INFO("Landing...");
-  // myController.m_land_pub.publish(emptyMsg);
-  // ros::spinOnce();
-  // ros::Duration(1.0).sleep();
-
 
   // ROS_INFO("Done.");
 
