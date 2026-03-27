@@ -1,8 +1,8 @@
 #include <ros/ros.h>
 #include <std_msgs/Empty.h>
+#include <tf/tf.h>
 #include "lm_tello_controller/MyController.hpp"
 #include "geometry_msgs/Twist.h"
-
 
 // Position limits for OptiTrack
 #define MIN_POS_X -1.6
@@ -12,38 +12,6 @@
 #define MIN_POS_Z 0.4
 #define MAX_POS_Z 2.3
 #define POS_MARGIN 0.4
-
-// int main(int argc, char** argv)
-// {
-//     ros::init(argc, argv, "lm_tello_controller_node");
-//     ros::NodeHandle nh;
-
-//     // Subscribe
-//     nh.subscribe("/natnet_ros/lmro14_flat_marker_pose", 10, dronePointCallback);
-
-//     // Publishers to tello topics
-//     ros::Publisher takeoff_pub = nh.advertise<std_msgs::Empty>("/tello/takeoff", 1);
-//     ros::Publisher land_pub    = nh.advertise<std_msgs::Empty>("/tello/land", 1);
-
-//     // Let publishers connect
-//     ros::Duration(3.0).sleep();
-
-//     std_msgs::Empty msg;
-
-//     ROS_INFO("Taking off and waiting for 5 seconds...");
-//     takeoff_pub.publish(msg);
-
-//     // Wait while flying
-//     ros::Duration(5.0).sleep();
-
-//     ROS_INFO("Landing...");
-//     land_pub.publish(msg);
-
-//     ROS_INFO("Done.");
-
-//     return 0;
-// }
-
 
 namespace lm_tello_controller
 {
@@ -65,92 +33,44 @@ namespace lm_tello_controller
     // Let publishers connect
     ros::Duration(3.0).sleep();
     ROS_INFO("Waiting done.");
-
-    ROS_INFO("Calling main");
-    main();
   }
 
-  void MyController::main()
+  MyController::~MyController()
   {
-    std_msgs::Empty emptyMsg;
-
-    ROS_INFO("Taking off and waiting for 5 seconds...");
-    m_takeoff_pub.publish(emptyMsg);
-
-    // Wait while flying
-    ros::Duration(5.0).sleep();
-    ROS_INFO("Take off waiting done.");
-
-    ROS_INFO("Waiting for in bounds OptiTrack callback...");
-    while (!m_inBounds) { ros::spinOnce(); };
-    ROS_INFO("Done. Drone is in bounds.");
-
-
-
-    double flightDir = 1.0;
-
-    for (size_t i = 0; i < 4; i++)
-    {
-      if (i > 0)
-      {
-        ROS_INFO("Going straight 'til back in bounds...");
-        while (!m_inBounds)
-        {
-          geometry_msgs::Twist myVelMsg;
-          myVelMsg.linear.x = flightDir*0.7;
-          m_vel_pub.publish(myVelMsg);
-          ros::spinOnce();
-        }
-
-        ROS_INFO("Going straight for 1 more second...");
-        const ros::Time startTime = ros::Time::now();
-        while (ros::Time::now() - startTime < ros::Duration(1.0))
-        {
-          geometry_msgs::Twist myVelMsg;
-          myVelMsg.linear.x = flightDir*0.7;
-          m_vel_pub.publish(myVelMsg);
-          ros::spinOnce();
-        }
-      }
-
-      ROS_INFO("Going straight 'til boundary...");
-      while (m_inBounds)
-      {
-        geometry_msgs::Twist myVelMsg;
-        myVelMsg.linear.x = flightDir*0.7;
-        m_vel_pub.publish(myVelMsg);
-        ros::spinOnce();
-      }
-      flightDir *= -1;
-      ROS_INFO("Reached boundary, going the other way");
-    }
-
-    ROS_INFO("Going back for 2 second...");
-    const ros::Time startTime = ros::Time::now();
-    while (ros::Time::now() - startTime < ros::Duration(1.0))
-    {
-      geometry_msgs::Twist myVelMsg;
-      myVelMsg.linear.x = flightDir*0.7;
-      m_vel_pub.publish(myVelMsg);
-      ros::spinOnce();
-    }
+    const std_msgs::Empty emptyMsg;
 
     // Stop the drone
-    geometry_msgs::Twist myVelMsg;
-    m_vel_pub.publish(myVelMsg);
+    ROS_INFO("Stopping for 1 seconds...");
+    ros::Rate rate1(50); // 50 Hz
+    for (int i = 0; i < 1*50; ++i)
+    {
+      geometry_msgs::Twist myVelMsg;
+      m_vel_pub.publish(myVelMsg);
+      ros::spinOnce();
+      rate1.sleep();
+    }
 
-    ros::Duration(1.0).sleep();
-
-
-    ROS_INFO("Landing...");
-    m_land_pub.publish(emptyMsg);
-
-    ROS_INFO("Done.");
+    ROS_INFO("Landing for 5 seconds...");
+    ros::Rate rate2(10);
+    for (int i = 0; i < 5*10; ++i)
+    {
+      m_land_pub.publish(emptyMsg);
+      ros::spinOnce();
+      rate2.sleep();
+    }
   }
+
+  // void MyController::angleLoop()
+  // {
+    
+  // }
+
+  
 
   void MyController::droneOptiTrackCallback(const geometry_msgs::PoseStamped &msg)
   {
-    geometry_msgs::Point pos = msg.pose.position;
+    const geometry_msgs::Point pos = msg.pose.position;
+    m_pos.x = pos.x; m_pos.y = pos.y; m_pos.z = pos.z;
     // ROS_INFO("X = ", pos.x);
     // ROS_INFO("Y = ", pos.y);
     // ROS_INFO("Z = ", pos.z);
@@ -166,6 +86,20 @@ namespace lm_tello_controller
       //  ROS_INFO("INSIDE ...");
       m_inBounds = true;
      }
+
+
+     const geometry_msgs::Quaternion quat = msg.pose.orientation;
+    //  quat.
+
+     tf::Quaternion q(
+        quat.x,
+        quat.y,
+        quat.z,
+        quat.w);
+    tf::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+    // ROS_INFO("\nroll  = %f\npitch = %f\nyaw   = %f", roll, pitch, yaw);
   }
 
 } /* namespace */

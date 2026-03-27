@@ -15,25 +15,23 @@ public:
      */
     MyController(ros::NodeHandle &nodeHandle);
 
-private:
-    ros::NodeHandle* m_nodeHandle;
-    // ros::Publisher m_tourelleCommandPublisher;
-    ros::Subscriber m_droneOptiTrackSubcriber;
-    // ros::Subscriber m_selfPoseSubscriber;
-    // geometry_msgs::Pose m_pose;
-    // void dronePointCallback(const geometry_msgs::Point &msg);
-    // void selfPoseCallback(const geometry_msgs::PoseStamped &msg);
-
+    ~MyController();
 
     ros::Publisher m_takeoff_pub;
     ros::Publisher m_land_pub;
     ros::Publisher m_vel_pub;
 
+
+    // void main();
+    // void angleLoop();
+
+    bool m_inBounds = false;
+    geometry_msgs::Point m_pos;
+
+private:
+    ros::NodeHandle* m_nodeHandle;
     void droneOptiTrackCallback(const geometry_msgs::PoseStamped &msg);
-
-    void main();
-
-    volatile bool m_inBounds = false;
+    ros::Subscriber m_droneOptiTrackSubcriber;
 };
 
 } /* namespace */
