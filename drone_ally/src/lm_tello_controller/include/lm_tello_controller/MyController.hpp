@@ -23,7 +23,17 @@ private:
     // geometry_msgs::Pose m_pose;
     // void dronePointCallback(const geometry_msgs::Point &msg);
     // void selfPoseCallback(const geometry_msgs::PoseStamped &msg);
+
+
+    ros::Publisher m_takeoff_pub;
+    ros::Publisher m_land_pub;
+    ros::Publisher m_vel_pub;
+
     void droneOptiTrackCallback(const geometry_msgs::PoseStamped &msg);
+
+    void main();
+
+    volatile bool m_inBounds = false;
 };
 
 } /* namespace */
