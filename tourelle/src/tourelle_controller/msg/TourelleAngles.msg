@@ -1,0 +1,3 @@
+float32 angle_bottom
+float32 angle_middle
+float32 angle_top

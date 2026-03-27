@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+ 
+<launch>
+   <node name="tourelle_controller_node1" pkg="tourelle_controller" type="tourelle_controller_node">
+      <rosparam param="drone_topic_name" >
+         /drone
+      </rosparam>
+      <rosparam param="self_topic_name" >
+         /optitrack
+      </rosparam>
+   </node>
+   <node name="tourelle_test_circle_node1" pkg="tourelle_controller" type="tourelle_test_circle_node">
+      <rosparam param="drone_topic_name" >
+         /drone
+      </rosparam>
+   </node>
+</launch>
