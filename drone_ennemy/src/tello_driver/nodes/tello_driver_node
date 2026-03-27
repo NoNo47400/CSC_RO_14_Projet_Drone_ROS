@@ -165,7 +165,7 @@ class TelloNode(tello.Tello):
             self.subscribe(self.EVENT_VIDEO_DATA, self.cb_video_data)            
             self.subscribe(self.EVENT_VIDEO_FRAME_H264, self.cb_h264_frame)
         else:
-            
+            self.start_video()
             self.frame_thread = threading.Thread(target=self.framegrabber_loop)
             self.frame_thread.start()
 
