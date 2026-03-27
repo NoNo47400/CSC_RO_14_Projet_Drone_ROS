@@ -5,7 +5,7 @@ import cv2
 import cv2.aruco as aruco
 import numpy as np
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Twist, Point
+from geometry_msgs.msg import Twist, Point, Pose
 from std_msgs.msg import Empty
 from cv_bridge import CvBridge, CvBridgeError
 from std_msgs.msg import Empty
@@ -20,7 +20,10 @@ class ArucoFollower:
         self.camera_info_pub = rospy.Publisher('/tello/camera_info', CameraInfo, queue_size=1)
         self.takeoff_pub = rospy.Publisher('/tello/takeoff', Empty, queue_size=10)
         self.ennemy_position_pub = rospy.Publisher('/ennemy_position', Point, queue_size=10) # Publish the position of the tag for the agent to use
-        
+        self.optitrack_position_sub = rospy.Subscriber('/natnet_ros/lmro14_flat_marker/pose', Pose, self.optitrack_callback) # Subscribe to OptiTrack position of the drone 
+
+        self.actual_position = Pose() # To store the actual position of the drone from OptiTrack
+
         rospy.sleep(1.0)
 
         # For the tag
@@ -112,7 +115,8 @@ class ArucoFollower:
                     marker_position.x = x_cam
                     marker_position.y = y_cam
                     marker_position.z = z_cam
-                    self.ennemy_position_pub.publish(marker_position)
+                    ennemy_position = self.ennemy_position(marker_position) # Get the position of the ennemy drone in the optitrack referential
+                    self.ennemy_position_pub.publish(ennemy_position)
                     
                     # Draw axes on the image for debugging
                     try:
@@ -161,6 +165,46 @@ class ArucoFollower:
         # Display the video feed
         cv2.imshow("ArUco Tracker", cv_image)
         cv2.waitKey(1)
+
+    def optitrack_callback(self, msg):
+        self.actual_position = msg 
+
+    def ennemy_position(self, ennemy_pos):
+        def ennemy_position(self, ennemy_pos_cam):
+        # We just verify that we have received a position from the optitrack
+        if self.actual_position.orientation.w == 0.0 and self.actual_position.orientation.x == 0.0:
+            print("No position received from OptiTrack yet, cannot compute enemy position.")
+            return None
+
+        # Passing from camera frame to optitrack frame
+        # Camera : Z = forward, X = right, Y = down
+        # Drone  : X = forward, Y = left, Z = up
+        x_drone = ennemy_pos_cam.z
+        y_drone = -ennemy_pos_cam.x
+        z_drone = -ennemy_pos_cam.y
+        
+        # Relative position vector of the enemy 
+        vector_enemy_relative = np.array([x_drone, y_drone, z_drone, 1.0])
+
+        q = [
+            self.actual_position.orientation.x,
+            self.actual_position.orientation.y,
+            self.actual_position.orientation.z,
+            self.actual_position.orientation.w
+        ]
+
+        # Create the rotation matrix from the quaternion
+        rotation_matrix = tf_trans.quaternion_matrix(q)
+
+        # Rotate the relative vector to align it with the OptiTrack axes
+        vector_enemy_rotated = np.dot(rotation_matrix, vector_enemy_relative)
+
+        ennemy_pos_optitrack = Point()
+        ennemy_pos_optitrack.x = self.actual_position.position.x + vector_enemy_rotated[0]
+        ennemy_pos_optitrack.y = self.actual_position.position.y + vector_enemy_rotated[1]
+        ennemy_pos_optitrack.z = self.actual_position.position.z + vector_enemy_rotated[2]
+
+        return ennemy_pos_optitrack
 
 if __name__ == '__main__':
     try:
