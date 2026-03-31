@@ -5,10 +5,10 @@ import cv2
 import cv2.aruco as aruco
 import numpy as np
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Twist, Point, Pose
+from geometry_msgs.msg import Twist, Point, PoseStamped, Pose
 from std_msgs.msg import Empty
 from cv_bridge import CvBridge, CvBridgeError
-from std_msgs.msg import Empty
+import tf.transformations as tf_trans
 
 class ArucoFollower:
     def __init__(self):
@@ -20,7 +20,7 @@ class ArucoFollower:
         self.camera_info_pub = rospy.Publisher('/tello/camera_info', CameraInfo, queue_size=1)
         self.takeoff_pub = rospy.Publisher('/tello/takeoff', Empty, queue_size=10)
         self.ennemy_position_pub = rospy.Publisher('/ennemy_position', Point, queue_size=10) # Publish the position of the tag for the agent to use
-        self.optitrack_position_sub = rospy.Subscriber('/natnet_ros/lmro14_flat_marker/pose', Pose, self.optitrack_callback) # Subscribe to OptiTrack position of the drone 
+        self.optitrack_position_sub = rospy.Subscriber('/natnet_ros/lmro14_tello1/pose', PoseStamped, self.optitrack_callback) # Subscribe to OptiTrack position of the drone 
 
         self.actual_position = Pose() # To store the actual position of the drone from OptiTrack
 
@@ -77,7 +77,6 @@ class ArucoFollower:
         return max(min(value, self.max_speed), -self.max_speed)
 
     def image_callback(self, data):
-        print("In Image Callback")
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
@@ -116,7 +115,10 @@ class ArucoFollower:
                     marker_position.y = y_cam
                     marker_position.z = z_cam
                     ennemy_position = self.ennemy_position(marker_position) # Get the position of the ennemy drone in the optitrack referential
-                    self.ennemy_position_pub.publish(ennemy_position)
+                    if ennemy_position is not None:
+                        self.ennemy_position_pub.publish(ennemy_position)
+                    else:
+                        rospy.logwarn("Could not compute enemy position in OptiTrack frame, skipping publish.")
                     
                     # Draw axes on the image for debugging
                     try:
@@ -167,10 +169,11 @@ class ArucoFollower:
         cv2.waitKey(1)
 
     def optitrack_callback(self, msg):
-        self.actual_position = msg 
+        self.actual_position = msg.pose 
+        print(f"Received OptiTrack position: x={self.actual_position.position.x:.2f}, y={self.actual_position.position.y:.2f}, z={self.actual_position.position.z:.2f}")
+        
 
-    def ennemy_position(self, ennemy_pos):
-        def ennemy_position(self, ennemy_pos_cam):
+    def ennemy_position(self, ennemy_pos_cam):
         # We just verify that we have received a position from the optitrack
         if self.actual_position.orientation.w == 0.0 and self.actual_position.orientation.x == 0.0:
             print("No position received from OptiTrack yet, cannot compute enemy position.")
