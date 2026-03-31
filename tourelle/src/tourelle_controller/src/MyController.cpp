@@ -19,9 +19,11 @@ namespace tourelle_controller
 
     m_currentCommandBot = 90;
     m_currentCommandMiddle = 90;
+    index_drone = 0;
+    index_tourelle = 0;
 
-    //TODO : Rename topics
-    m_dronePointSubscriber = m_nodeHandle->subscribe(droneTopicName, 10, &MyController::dronePointCallback, this);
+    //m_dronePointSubscriber = m_nodeHandle->subscribe(droneTopicName, 10, &MyController::dronePointCallback, this);
+    m_dronePoseSubscriber = m_nodeHandle->subscribe(droneTopicName, 10, &MyController::dronePoseCallback, this);
     m_selfPoseSubscriber = m_nodeHandle->subscribe(selfTopicName, 10, &MyController::selfPoseCallback, this);
     m_tourelleCommandPublisher = m_nodeHandle->advertise<tourelle_controller::TourelleAngles>("/angles", 10);
     ROS_INFO("Successfully launched node.");
@@ -33,87 +35,107 @@ namespace tourelle_controller
     m_tourelleCommandPublisher.publish(commande);
   }
 
-  void MyController::dronePointCallback(const geometry_msgs::Point &msg)
+  //void MyController::dronePointCallback(const geometry_msgs::Point &msg)
+  void MyController::dronePoseCallback(const geometry_msgs::PoseStamped &msg)
   {
-    /*
-    On suppose que le moteur du bas et du milieu vont de 0° à 180°
-    Le moteur du haut est limité entre 40° et 175°    
-    */
-    tourelle_controller::TourelleAngles commande;
+    if (index_drone == update_delay)
+    {
+      index_drone = 0;
+      /*
+      On suppose que le moteur du bas et du milieu vont de 0° à 180°
+      Le moteur du haut est limité entre 40° et 175°    
+      */
+      tourelle_controller::TourelleAngles commande;
+      geometry_msgs::Point point = msg.pose.position;
+      //geometry_msgs::Point point = msg;
 
-    double deltax = msg.x - m_pose.position.x;
-    double deltay = msg.y - m_pose.position.y;
-    double deltaz = msg.z - m_pose.position.z - m_height;
+      double deltax = point.x - m_pose.position.x;
+      double deltay = point.y - m_pose.position.y;
+      double deltaz = point.z - m_pose.position.z - m_height;
 
-    //Calcul de la commande en yaw
-      double goal_yaw = atan2(deltay,deltax) * (180.0/3.141592653589793238463); // Angle selon z pour les deux moteurs du bas
+      //Calcul de la commande en yaw
+        double goal_yaw = atan2(deltay,deltax) * (180.0/3.141592653589793238463); // Angle selon z pour les deux moteurs du bas
 
-      //Ajouter la connaissance du yaw actuel
-      double current_yaw = - m_currentCommandBot - m_currentCommandMiddle + 180; // Dans [-180°, 180°]
-      double delta_command_yaw = current_yaw - goal_yaw;
+        //Ajouter la connaissance du yaw actuel
+        double current_yaw = - m_currentCommandBot - m_currentCommandMiddle + 180; // Dans [-180°, 180°]
+        double delta_command_yaw = current_yaw - goal_yaw;
 
-      // Normalisation dans [-180, 180]
-      delta_command_yaw = std::fmod(delta_command_yaw + 180.0, 360.0);
-      if (delta_command_yaw < 0)
-          delta_command_yaw += 360.0;
-      delta_command_yaw -= 180.0;
+        // Normalisation dans [-180, 180]
+        delta_command_yaw = std::fmod(delta_command_yaw + 180.0, 360.0);
+        if (delta_command_yaw < 0)
+            delta_command_yaw += 360.0;
+        delta_command_yaw -= 180.0;
+        
+        double command_yaw_bottom;
+        double command_yaw_middle;
+
+        //On maximise d'abord le moteur du bas
+        if (delta_command_yaw > 0) // Sens horaire
+        {
+          if (m_currentCommandBot + delta_command_yaw > 180) 
+          //Si on NE PEUT PAS résoudre le problème avec un seulement le moteur bas
+          {
+            delta_command_yaw = delta_command_yaw - m_currentCommandBot; // On calcule ce qui dépasse
+            command_yaw_bottom = 180; // On met ce qu'on peut dans le bas
+            command_yaw_middle = m_currentCommandMiddle + delta_command_yaw; // Et le reste dans l'autre
+          }
+          else
+          //Si on PEUT résoudre le problème avec seulement le moteur bas
+          {
+            command_yaw_bottom = m_currentCommandBot + delta_command_yaw; // On met tout dans le bas
+            command_yaw_middle = m_currentCommandMiddle; // On ne change pas le middle
+          }
+        }
+        else // Sens anti-horaire
+        {
+          if (m_currentCommandBot + delta_command_yaw < 0) 
+          //Si on NE PEUT PAS résoudre le problème avec un seulement le moteur bas
+          {
+            delta_command_yaw = delta_command_yaw + m_currentCommandBot; // On calcule ce qui dépasse
+            command_yaw_bottom = 0; // On met ce qu'on peut dans le bas
+            command_yaw_middle = m_currentCommandMiddle + delta_command_yaw; // Et le reste dans l'autre
+          }
+          else
+          //Si on PEUT résoudre le problème avec seulement le moteur bas
+          {
+            command_yaw_bottom = m_currentCommandBot + delta_command_yaw; // On met tout dans le bas
+            command_yaw_middle = m_currentCommandMiddle; // On ne change pas le middle
+          }
+        }
       
-      double command_yaw_bottom;
-      double command_yaw_middle;
+      //Calcul de la commande en pitch
+        double dist = sqrt(deltax*deltax + deltay*deltay);
+        double goal_pitch = atan2(deltaz, dist) * (180.0/3.141592653589793238463); // Angle pour le moteur du haut
 
-      //On maximise d'abord le moteur du bas
-      if (delta_command_yaw > 0) // Sens horaire
-      {
-        if (m_currentCommandBot + delta_command_yaw > 180) 
-        //Si on NE PEUT PAS résoudre le problème avec un seulement le moteur bas
-        {
-          delta_command_yaw = delta_command_yaw - m_currentCommandBot; // On calcule ce qui dépasse
-          command_yaw_bottom = 180; // On met ce qu'on peut dans le bas
-          command_yaw_middle = m_currentCommandMiddle + delta_command_yaw; // Et le reste dans l'autre
-        }
-        else
-        //Si on PEUT résoudre le problème avec seulement le moteur bas
-        {
-          command_yaw_bottom = m_currentCommandBot + delta_command_yaw; // On met tout dans le bas
-          command_yaw_middle = m_currentCommandMiddle; // On ne change pas le middle
-        }
-      }
-      else // Sens anti-horaire
-      {
-        if (m_currentCommandBot + delta_command_yaw < 0) 
-        //Si on NE PEUT PAS résoudre le problème avec un seulement le moteur bas
-        {
-          delta_command_yaw = delta_command_yaw + m_currentCommandBot; // On calcule ce qui dépasse
-          command_yaw_bottom = 0; // On met ce qu'on peut dans le bas
-          command_yaw_middle = m_currentCommandMiddle + delta_command_yaw; // Et le reste dans l'autre
-        }
-        else
-        //Si on PEUT résoudre le problème avec seulement le moteur bas
-        {
-          command_yaw_bottom = m_currentCommandBot + delta_command_yaw; // On met tout dans le bas
-          command_yaw_middle = m_currentCommandMiddle; // On ne change pas le middle
-        }
-      }
+        double command_pitch = goal_pitch + 90;
+      
+      //Ajout dans la commande //TODO implementer la commande
+        commande.angle_bottom = command_yaw_bottom; //Augmentation = sens horaire
+        commande.angle_middle = command_yaw_middle; //Augmentation = sens horaire
+        commande.angle_top = command_pitch; //Augmentation = vers le haut
+
+      m_tourelleCommandPublisher.publish(commande);
+
+      ROS_INFO_STREAM("Command sent"<< std::endl);
+    }
+    else
+    {
+      index_drone++;
+    }
     
-    //Calcul de la commande en pitch
-      double dist = sqrt(deltax*deltax + deltay*deltay);
-      double goal_pitch = atan2(deltaz, dist) * (180.0/3.141592653589793238463); // Angle pour le moteur du haut
-
-      double command_pitch = goal_pitch + 90;
-    
-    //Ajout dans la commande //TODO implementer la commande
-      commande.angle_bottom = command_yaw_bottom; //Augmentation = sens horaire
-      commande.angle_middle = command_yaw_middle; //Augmentation = sens horaire
-      commande.angle_top = command_pitch; //Augmentation = vers le haut
-
-    m_tourelleCommandPublisher.publish(commande);
-
-    ROS_INFO_STREAM("Command sent"<< std::endl);
   }
 
   void MyController::selfPoseCallback(const geometry_msgs::PoseStamped &msg)
   {
-    m_pose = msg.pose; // On récupère juste la pose
+    if (index_tourelle == update_delay)
+    {
+      index_tourelle = 0;
+      m_pose = msg.pose; // On récupère juste la pose
+    }
+    else
+    {
+      index_tourelle++;
+    }
   }
 
 } /* namespace */

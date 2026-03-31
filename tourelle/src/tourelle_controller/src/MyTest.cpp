@@ -25,7 +25,7 @@ namespace tourelle_test
     point.x = rayon * cos(m_currentAngle / (180.0/3.141592653589793238463));
     point.y = rayon * sin(m_currentAngle / (180.0/3.141592653589793238463));
     point.z = 1;//3 * m_currentAngle/360 - 1;
-    m_currentAngle -= 0.5;
+    m_currentAngle += 0.5;
     m_currentAngle = std::fmod(m_currentAngle, 360);
     m_tourelleTestPublisher.publish(point);
   }

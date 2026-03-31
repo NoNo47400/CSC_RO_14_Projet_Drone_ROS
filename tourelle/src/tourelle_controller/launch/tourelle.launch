@@ -3,15 +3,18 @@
 <launch>
    <node name="tourelle_controller_node1" pkg="tourelle_controller" type="tourelle_controller_node">
       <rosparam param="drone_topic_name" >
-         /drone
+         /natnet_ros/lmro14_ball/pose
       </rosparam>
       <rosparam param="self_topic_name" >
-         /optitrack
+         /natnet_ros/lmro14_tourelle/pose
       </rosparam>
    </node>
-   <node name="tourelle_test_circle_node1" pkg="tourelle_controller" type="tourelle_test_circle_node">
+   <!--<node name="tourelle_test_circle_node1" pkg="tourelle_controller" type="tourelle_test_circle_node">
       <rosparam param="drone_topic_name" >
-         /drone
+         /ennemy_position
+         /natnet_ros/lmro14_tello2/pose
+         /drone_ennemy
+
       </rosparam>
-   </node>
+   </node>-->
 </launch>
